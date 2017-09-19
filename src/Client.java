@@ -8,6 +8,10 @@ public class Client {
     InetAddress ip;
     int port;
 
+
+
+    long timeStamp;
+
     Client(String username, InetAddress ip, int port) {
         this.username = username;
         this.ip = ip;
@@ -25,6 +29,14 @@ public class Client {
 
     public int getPort() {
         return port;
+    }
+
+    public long getTimeStamp() {
+        return timeStamp;
+    }
+
+    public void setTimeStamp(long timeStamp) {
+        this.timeStamp = timeStamp;
     }
 
 
