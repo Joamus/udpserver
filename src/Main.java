@@ -5,10 +5,23 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         ClientHandler clienthandler = new ClientHandler();
-        try {
-            clienthandler.listen();
-        } catch(Exception e) {
-            System.out.println(e);
-        }
+
+        new Thread (() -> {
+            try {
+                clienthandler.sendHeartBeat();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+        }).start();
+
+        new Thread(() -> {
+            try {
+                clienthandler.listen();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+
     }
 }

@@ -7,15 +7,13 @@ public class Client {
     String username;
     InetAddress ip;
     int port;
-
-
-
     long timeStamp;
 
-    Client(String username, InetAddress ip, int port) {
+    Client(String username, InetAddress ip, int port, long timeStamp) {
         this.username = username;
         this.ip = ip;
         this.port = port;
+        this.timeStamp = timeStamp;
 
     }
 

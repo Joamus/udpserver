@@ -1,7 +1,5 @@
-import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,12 +19,26 @@ public class ClientHandler {
 
     void connectUser(DatagramPacket packet) throws Exception {
         String stringPacket = new String(packet.getData(), 0, packet.getLength());
-        System.out.println(packet.getPort());
 
         String username = stringPacket.substring(5, stringPacket.length());
-        Client client = new Client(username, packet.getAddress(), packet.getPort());
-        connectedClients.add(client);
-        updateOnlineUsers();
+        Client client = new Client(username, packet.getAddress(), packet.getPort(), System.currentTimeMillis());
+
+        boolean alreadyJoined = false;
+
+        for (int i = 0; i < connectedClients.size(); i++) {
+            if (connectedClients.get(i).getUserName().equalsIgnoreCase(username)) {
+                alreadyJoined = true;
+                break;
+            }
+        }
+
+        if (alreadyJoined) {
+            sendLoginError(client);
+        } else if (!alreadyJoined) {
+            sendLoginOK(client);
+            connectedClients.add(client);
+            updateOnlineUsers();
+        }
 
     }
 
@@ -48,11 +60,6 @@ public class ClientHandler {
         }
     }
 
-    void removeUser(Client client) {
-        connectedClients.remove(client);
-        System.out.println(client.getUserName() + " has left the server.\n");
-    }
-
     void listen() throws Exception {
         byte[] receiveData = new byte[1024];
         DatagramSocket socket = new DatagramSocket(serverPort);
@@ -61,31 +68,10 @@ public class ClientHandler {
         do {
             socket.receive(packet);
 
-        String stringPacket = new String(packet.getData(), 0, packet.getLength());
+            String stringPacket = new String(packet.getData(), 0, packet.getLength());
 
-        String transactionType = stringPacket.substring(0, 4);
-        System.out.println(stringPacket);
-
-        // Lytte tråd
-
-            new Thread(() -> {
-                try {
-                    listenSwitch(transactionType, packet, stringPacket);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }).start();
-
-            // Lytte tråd
-
-            new Thread(() -> {
-                try {
-                    sendHeartBeat();
-                } catch(Exception e) {
-                    e.printStackTrace();
-                }
-            }).start();
-
+            String transactionType = stringPacket.substring(0, 4);
+            listenSwitch(transactionType, packet, stringPacket);
 
         } while (socket.isBound());
 
@@ -103,23 +89,51 @@ public class ClientHandler {
 
     }
 
-    public void updateHeartBeat() {
+    public void updateUserHeartbeat(String stringPacket) {
+        String username = stringPacket.substring(5, stringPacket.length());
+
+        // Finder brugeren i connectedClients, og opdaterer hans tid til nu.
+
+        for (int i = 0; i < connectedClients.size(); i++) {
+            if (connectedClients.get(i).getUserName().equals(username)) {
+                connectedClients.get(i).setTimeStamp(System.currentTimeMillis());
+                break;
+            }
+        }
+    }
+
+    public void sendHeartBeat() throws Exception {
+        long DELAY = 1 * 2000;
+        while (true) {
+            byte[] sendData;
+            String heartBeat = "ALVE";
+            sendData = heartBeat.getBytes();
+
+            DatagramSocket socket = new DatagramSocket();
+
+            for (Client client : connectedClients) {
+                DatagramPacket packet = new DatagramPacket(sendData, sendData.length, client.getIp(), client.getPort());
+                socket.send(packet);
+            }
+            Thread.sleep(DELAY);
+            removeUsersWithoutHeartBeat(DELAY);
+        }
 
     }
 
-    public void sendHeartBeat() throws IOException {
-        byte[] sendData;
-        String heartBeat = "ALVE";
-        sendData = heartBeat.getBytes();
+    public void removeUsersWithoutHeartBeat(long DELAY) {
+        long DELAY_WITH_BUFFER = DELAY + 2000;
 
-        DatagramSocket socket = new DatagramSocket();
-
-        for (Client client : connectedClients) {
-            DatagramPacket packet = new DatagramPacket(sendData, sendData.length, client.getIp(), client.getPort());
-            socket.send(packet);
-
+        for (int i = 0; i < connectedClients.size(); i++) {
+            if (System.currentTimeMillis()-connectedClients.get(i).getTimeStamp() > DELAY_WITH_BUFFER) {
+                connectedClients.remove(connectedClients.get(i));
+            }
         }
-
+        try {
+            updateOnlineUsers();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
 
@@ -136,9 +150,36 @@ public class ClientHandler {
                 break;
 
             case "ALVE":
-                updateHeartBeat();
+                updateUserHeartbeat(stringPacket);
                 break;
+
+
         }
+
+    }
+
+     void sendLoginError(Client client) throws Exception {
+        byte[] sendData;
+        String heartBeat = "JERR";
+        sendData = heartBeat.getBytes();
+
+        DatagramSocket socket = new DatagramSocket();
+        DatagramPacket packet = new DatagramPacket(sendData, sendData.length, client.getIp(), client.getPort());
+
+        socket.send(packet);
+
+
+    }
+
+    void sendLoginOK(Client client) throws Exception {
+        byte[] sendData;
+        String heartBeat = "J_OK";
+        sendData = heartBeat.getBytes();
+
+        DatagramSocket socket = new DatagramSocket();
+        DatagramPacket packet = new DatagramPacket(sendData, sendData.length, client.getIp(), client.getPort());
+
+        socket.send(packet);
 
     }
 
